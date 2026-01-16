@@ -7,12 +7,20 @@ let db: Database.Database | null = null
 
 export async function getDb() {
   if (!db) {
-    const dataDir = join(process.cwd(), "data")
+    const isVercel = process.env.VERCEL === "1"
+    const dataDir = isVercel ? "/tmp" : join(process.cwd(), "data")
+
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true })
     }
 
     const dbPath = join(dataDir, "books.db")
+
+    if (isVercel) {
+      console.log("[v0] WARNING: Running on Vercel with ephemeral /tmp storage. Data will be lost between deployments!")
+      console.log("[v0] For production, please migrate to Vercel Postgres, Neon, or Supabase")
+    }
+
     db = new Database(dbPath)
     db.pragma("journal_mode = WAL")
 
@@ -53,7 +61,7 @@ async function initializeTables(db: Database.Database) {
 
   if (!existingUser) {
     const passwordHash = bcrypt.hashSync("password123", 10)
-    console.log(" Creating demo user with hash length:", passwordHash.length)
+    console.log("[v0] Creating demo user with hash length:", passwordHash.length)
 
     db.prepare("INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)").run(
       "test@example.com",
@@ -70,7 +78,7 @@ async function initializeTables(db: Database.Database) {
         ('1984', 'George Orwell', '978-0-452-28423-4', '1949-06-08', ?)
     `).run(userId.id, userId.id, userId.id)
 
-    console.log(" Demo user and sample books created")
+    console.log("[v0] Demo user and sample books created")
   }
 }
 
