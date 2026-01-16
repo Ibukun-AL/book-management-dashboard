@@ -31,16 +31,16 @@ export async function getDb() {
         db.pragma("journal_mode = WAL")
 
         await initializeSQLiteTables(db)
-        console.log("[v0] Using SQLite database for local development")
+        console.log(" Using SQLite database for local development")
         return db
       } catch (error) {
-        console.log("[v0] SQLite failed, falling back to in-memory storage:", error)
+        console.log(" SQLite failed, falling back to in-memory storage:", error)
         useInMemory = true
       }
     } else {
-      console.log("[v0] Running on Vercel - using in-memory storage")
-      console.log("[v0] WARNING: Data will be lost between requests!")
-      console.log("[v0] For production, please migrate to Vercel Postgres, Neon, or Supabase")
+      console.log(" Running on Vercel - using in-memory storage")
+      console.log(" WARNING: Data will be lost between requests!")
+      
       useInMemory = true
     }
   }
@@ -162,7 +162,16 @@ function createInMemoryDb() {
             return inMemoryStore.users.find((u) => u.id === params[0])
           }
           if (sql.includes("SELECT * FROM books WHERE id = ?")) {
-            return inMemoryStore.books.find((b) => b.id === params[0])
+            if (params.length === 2) {
+              return inMemoryStore.books.find((b) => b.id === Number(params[0]) && b.user_id === params[1])
+            }
+            return inMemoryStore.books.find((b) => b.id === Number(params[0]))
+          }
+          if (sql.includes("SELECT id FROM books WHERE isbn = ?")) {
+            if (params.length === 2) {
+              return inMemoryStore.books.find((b) => b.isbn === params[0] && b.id !== Number(params[1]))
+            }
+            return inMemoryStore.books.find((b) => b.isbn === params[0])
           }
           return undefined
         },
@@ -192,25 +201,45 @@ function createInMemoryDb() {
             return { lastInsertRowid: newId, changes: 1 }
           }
           if (sql.includes("UPDATE books")) {
-            const bookId = params[4]
-            const index = inMemoryStore.books.findIndex((b) => b.id === bookId)
+            const userId = params[params.length - 1]
+            const bookId = params[params.length - 2]
+            const index = inMemoryStore.books.findIndex((b) => b.id === Number(bookId) && b.user_id === userId)
             if (index !== -1) {
+              const updates: any = { updated_at: new Date().toISOString() }
+
+              // Parse the SQL to understand which fields are being updated
+              if (params.length >= 4) {
+                updates.title = params[0]
+              }
+              if (params.length >= 5) {
+                updates.author = params[1]
+              }
+              if (params.length >= 6) {
+                updates.isbn = params[2]
+              }
+              if (params.length >= 7) {
+                updates.published_date = params[3]
+              }
+
               inMemoryStore.books[index] = {
                 ...inMemoryStore.books[index],
-                title: params[0],
-                author: params[1],
-                isbn: params[2],
-                published_date: params[3],
-                updated_at: new Date().toISOString(),
+                ...updates,
               }
               return { changes: 1 }
             }
             return { changes: 0 }
           }
-          if (sql.includes("DELETE FROM books WHERE id = ?")) {
+          if (sql.includes("DELETE FROM books WHERE id = ? AND user_id = ?")) {
+            const bookId = Number(params[0])
+            const userId = params[1]
             const initialLength = inMemoryStore.books.length
-            inMemoryStore.books = inMemoryStore.books.filter((b) => b.id !== params[0])
-            return { changes: initialLength - inMemoryStore.books.length }
+            console.log(" Delete attempt - bookId:", bookId, "userId:", userId)
+            console.log(" Books before delete:", inMemoryStore.books.length)
+            inMemoryStore.books = inMemoryStore.books.filter((b) => !(b.id === bookId && b.user_id === userId))
+            console.log(" Books after delete:", inMemoryStore.books.length)
+            const changes = initialLength - inMemoryStore.books.length
+            console.log(" Changes:", changes)
+            return { changes }
           }
           return { changes: 0 }
         },
