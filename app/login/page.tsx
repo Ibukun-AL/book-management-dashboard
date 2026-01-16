@@ -1,11 +1,11 @@
 import { BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSession } from "@auth0/nextjs-auth0"
+import { auth0 } from "@/lib/auth0"
 import { redirect } from "next/navigation"
 
 export default async function LoginPage() {
-  const session = await getSession()
+  const session = await auth0.getSession()
 
   if (session?.user) {
     redirect("/dashboard")
