@@ -24,7 +24,7 @@ export default async function DashboardPage() {
               <p className="text-sm text-muted-foreground">Welcome, {user.name || user.email}</p>
             </div>
           </div>
-          <form action="/api/auth/logout" method="POST">
+          <form action="/auth/logout" method="POST">
             <Button variant="outline" type="submit">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
